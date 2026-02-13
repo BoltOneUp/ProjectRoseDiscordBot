@@ -1,5 +1,12 @@
 import discord
-# import asyncio
+import asyncio
+from dotenv import load_dotenv
+from keep_alive import keep_alive
+
+load_dotenv()
+TOKEN = os.getenv("DISCORD_TOKEN")
+
+keep_alive()
 
 bot = discord.Bot(intents=discord.Intents.all(),)
 
@@ -19,4 +26,4 @@ if __name__ == '__main__': # import cogs from cogs folder
     for extension in extensions:
         bot.load_extension(extension)
 
-bot.run('YOUR_BOT_TOKEN_FROM_DEV_PORTAL')  # bot token
+bot.run(TOKEN)  # bot token
