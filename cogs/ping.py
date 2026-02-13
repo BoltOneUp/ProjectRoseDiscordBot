@@ -1,18 +1,20 @@
 import discord
-from discord.commands import slash_command
 from discord.ext import commands
+from discord import app_commands
 
-class ping(commands.Cog):
-
-    def __init__(self,bot):
+class Ping(commands.Cog):
+    def __init__(self, bot):
         self.bot = bot
 
-    @slash_command(guild_ids=[1324925441454112798],name='ping',description='return bot latency')
-    async def ping(
-        self,
-        ctx: discord.ApplicationContext
-    ):
-        await ctx.respond(f"pong! ({self.bot.latency*1000:.2f} ms)")
-def setup(bot):
-    bot.add_cog(ping(bot))
+    @app_commands.command(
+        name="ping",
+        description="Return bot latency"
+    )
+    async def ping(self, interaction: discord.Interaction):
+        latency = self.bot.latency * 1000
+        await interaction.response.send_message(
+            f"Pong! ({latency:.2f} ms)"
+        )
 
+async def setup(bot):
+    await bot.add_cog(Ping(bot))
