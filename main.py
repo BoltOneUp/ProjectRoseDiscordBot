@@ -11,13 +11,20 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 
 keep_alive()
 
+game_activity = discord.Game(name="Mario Kart World")
 intents = discord.Intents.default()
 intents.members = True # Example for member access
-bot = commands.Bot(command_prefix="!", intents=intents)
+bot = commands.Bot(
+    command_prefix="!",
+    activity=game_activity, 
+    status=discord.Status.online,
+    intents=intents
+)
 
 @bot.event
 async def on_ready():
     print(f'We have logged in as {bot.user}')
+    await bot.sync_commands()
     # while True:
     #     await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name='A nice game'))
     #     await asyncio.sleep(60)
