@@ -1,10 +1,11 @@
-﻿discord==1.7.3
-discord.py==1.7.3
+﻿discord
+discord.py
 
-py-cord==2.0.0rc1
+py-cord
 
 Flask==3.1.0
 python-dotenv==1.0.1
 legacy-cgi; python_version >= '3.13'
 audioop-lts; python_version>='3.13'
+
 
