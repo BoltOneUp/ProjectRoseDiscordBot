@@ -9,7 +9,9 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 
 keep_alive()
 
-bot = discord.Bot(intents=discord.Intents.all(),)
+intents = discord.Intents.default()
+intents.members = True # Example for member access
+bot = bot.Client(intents=intents)
 
 @bot.event
 async def on_ready():
