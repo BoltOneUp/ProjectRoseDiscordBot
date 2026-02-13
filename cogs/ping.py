@@ -7,7 +7,7 @@ class ping(commands.Cog):
     def __init__(self,bot):
         self.bot = bot
 
-    @slash_command(guild_ids=[936236815545954384],name='ping',description='return bot latency')
+    @slash_command(guild_ids=[1324925441454112798],name='ping',description='return bot latency')
     async def ping(
         self,
         ctx: discord.ApplicationContext
@@ -15,3 +15,4 @@ class ping(commands.Cog):
         await ctx.respond(f"pong! ({self.bot.latency*1000:.2f} ms)")
 def setup(bot):
     bot.add_cog(ping(bot))
+
