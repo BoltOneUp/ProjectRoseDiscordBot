@@ -6,4 +6,5 @@ py-cord==2.0.0rc1
 Flask==3.1.0
 python-dotenv==1.0.1
 legacy-cgi; python_version >= '3.13'
+audioop-lts; python_version>='3.13'
 
