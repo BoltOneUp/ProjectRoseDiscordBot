@@ -28,54 +28,74 @@ class Starboard(commands.Cog):
     # ------------------------
     # Helper Functions
     # ------------------------
-    def extract_urls(self, text):
-        """Extract URLs from message text"""
-        if not text:
-            return []
-        url_pattern = r'https?://[^\s<>"{}|\\^`\[\]]+'
-        return re.findall(url_pattern, text)
-
-    async def create_starboard_embed(self, message, star_count):
-        """Create the starboard embed"""
-        embed = discord.Embed(
+    async def create_starboard_embeds(self, message):
+        """Create all embeds for starboard message in proper order"""
+        embeds = []
+        
+        # 1. Reply context (grey embed) - if message is a reply
+        if message.reference and message.reference.message_id:
+            try:
+                replied_msg = await message.channel.fetch_message(message.reference.message_id)
+                reply_embed = discord.Embed(
+                    description=f"**Replying to {replied_msg.author.mention}**\n{replied_msg.content[:100]}{'...' if len(replied_msg.content) > 100 else ''}",
+                    color=discord.Color.greyple(),
+                    timestamp=replied_msg.created_at
+                )
+                reply_embed.set_author(
+                    name=replied_msg.author.display_name,
+                    icon_url=replied_msg.author.display_avatar.url
+                )
+                embeds.append(reply_embed)
+            except:
+                pass
+        
+        # 2. Link embeds BEFORE main message (grey colored)
+        # Discord automatically embeds links, but we'll note them
+        if message.embeds:
+            for embed in message.embeds:
+                # Only include embeds that came from links (not rich content from bots)
+                if embed.type in ['link', 'image', 'video', 'gifv', 'article', 'rich']:
+                    # Convert to grey embed
+                    grey_embed = discord.Embed(
+                        title=embed.title or None,
+                        description=embed.description or None,
+                        url=embed.url or None,
+                        color=discord.Color.greyple()
+                    )
+                    if embed.author:
+                        grey_embed.set_author(name=embed.author.name, url=embed.author.url, icon_url=embed.author.icon_url)
+                    if embed.thumbnail:
+                        grey_embed.set_thumbnail(url=embed.thumbnail.url)
+                    if embed.image:
+                        grey_embed.set_image(url=embed.image.url)
+                    if embed.footer:
+                        grey_embed.set_footer(text=embed.footer.text, icon_url=embed.footer.icon_url)
+                    embeds.append(grey_embed)
+        
+        # 3. Main starred message (yellow/gold embed)
+        main_embed = discord.Embed(
             description=message.content or "*No text content*",
             color=discord.Color.gold(),
             timestamp=message.created_at
         )
-        embed.set_author(
+        main_embed.set_author(
             name=message.author.display_name,
             icon_url=message.author.display_avatar.url
         )
-        embed.add_field(name="Stars", value=f"⭐ {star_count}")
-        embed.add_field(
-            name="Jump to Message",
-            value=f"[Click Here]({message.jump_url})",
-            inline=False
-        )
-
-        # Handle attachments (images)
+        
+        # Add first attachment as image
         if message.attachments:
-            embed.set_image(url=message.attachments[0].url)
+            main_embed.set_image(url=message.attachments[0].url)
             if len(message.attachments) > 1:
-                embed.set_footer(text=f"+{len(message.attachments) - 1} more attachment(s)")
-
-        # Extract and display URLs as embed links
-        urls = self.extract_urls(message.content)
-        if urls and not message.attachments:
-            # If there's a URL but no attachment, try to use first URL as image
-            # Discord will auto-embed it if it's an image link
-            first_url = urls[0]
-            if any(first_url.lower().endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.gif', '.webp']):
-                embed.set_image(url=first_url)
-            
-            # Add URLs field
-            if len(urls) > 0:
-                url_list = '\n'.join([f"• {url}" for url in urls[:3]])  # Show max 3 URLs
-                if len(urls) > 3:
-                    url_list += f"\n*+{len(urls) - 3} more link(s)*"
-                embed.add_field(name="🔗 Links", value=url_list, inline=False)
-
-        return embed
+                main_embed.set_footer(text=f"+{len(message.attachments) - 1} more attachment(s)")
+        
+        embeds.append(main_embed)
+        
+        # 4. Additional link embeds AFTER main message (yellow colored)
+        # If there are extra embeds beyond what we've shown
+        remaining_embeds = message.embeds[len([e for e in embeds if e.color == discord.Color.greyple() and e != embeds[0] if embeds and embeds[0].description and "Replying to" in embeds[0].description]):]
+        
+        return embeds
 
     async def update_starboard_message(self, guild_id, message_id, star_count):
         """Update an existing starboard message with new star count"""
@@ -101,8 +121,15 @@ class Starboard(commands.Cog):
             
             if original_channel:
                 original_msg = await original_channel.fetch_message(int(message_id_str))
-                new_embed = await self.create_starboard_embed(original_msg, star_count)
-                await starboard_msg.edit(embed=new_embed)
+                
+                # Create new content string
+                content = f"⭐ {star_count} - {original_msg.jump_url}"
+                
+                # Create embeds
+                embeds = await self.create_starboard_embeds(original_msg)
+                
+                # Edit the message
+                await starboard_msg.edit(content=content, embeds=embeds)
                 
                 # Update stored star count
                 self.star_data[guild_id_str][message_id_str]["stars"] = star_count
@@ -119,21 +146,15 @@ class Starboard(commands.Cog):
     # ------------------------
     @commands.Cog.listener()
     async def on_message(self, message):
-        """Auto-add star to messages (optional - you can remove this if you don't want it)"""
-        # Don't star bot messages or messages in starboard channel
-        if message.author.bot:
-            return
-        
-        if message.channel.name == "starboard":
-            return
-        
-        # Automatically add a star to every message (comment out if you don't want this)
-        try:
-            await message.add_reaction("⭐")
-        except discord.Forbidden:
-            pass  # Bot doesn't have permission to add reactions
-        except Exception as e:
-            print(f"Error auto-adding star: {e}")
+        """Auto-add star to new starboard entries"""
+        # Only auto-star messages in starboard channel that are from the bot
+        if message.channel.name == "starboard" and message.author == self.bot.user:
+            try:
+                await message.add_reaction("⭐")
+            except discord.Forbidden:
+                pass
+            except Exception as e:
+                print(f"Error auto-adding star to starboard: {e}")
 
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
@@ -148,13 +169,13 @@ class Starboard(commands.Cog):
         if channel is None:
             return
 
-        # Don't track stars in the starboard channel itself
-        if channel.name == "starboard":
-            return
-
         try:
             message = await channel.fetch_message(payload.message_id)
         except discord.NotFound:
+            return
+
+        # Prevent starring messages IN the starboard channel from creating duplicates
+        if channel.name == "starboard":
             return
 
         # Count stars
@@ -184,9 +205,14 @@ class Starboard(commands.Cog):
         if starboard_channel is None:
             return
 
-        # Create and send starboard embed
-        embed = await self.create_starboard_embed(message, star_count)
-        sent = await starboard_channel.send(embed=embed)
+        # Create content string (non-embed text)
+        content = f"⭐ {star_count} - {message.jump_url}"
+        
+        # Create embeds
+        embeds = await self.create_starboard_embeds(message)
+        
+        # Send to starboard
+        sent = await starboard_channel.send(content=content, embeds=embeds)
 
         # Save to JSON
         if guild_id not in self.star_data:
