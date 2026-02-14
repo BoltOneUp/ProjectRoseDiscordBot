@@ -35,8 +35,10 @@ extensions = [# load cogs
     'cogs.ping',
 ]
 
-if __name__ == '__main__': # import cogs from cogs folder
-    for extension in extensions:
-        bot.load_extension(extension)
+async def main():
+    async with bot:
+        for extension in extensions:
+            await bot.load_extension(extension)
+        await bot.start(TOKEN)
 
-bot.run(TOKEN)  # bot token
+asyncio.run(main())
