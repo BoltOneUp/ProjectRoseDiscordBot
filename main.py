@@ -31,8 +31,9 @@ async def on_ready():
     #     await asyncio.sleep(60)
 
 
-extensions = [# load cogs
-    'cogs.ping',
+extensions = [
+    "cogs.ping",
+    "cogs.starboard",
 ]
 
 async def main():
